@@ -505,6 +505,8 @@ class ConstraintButtonsPanel(Panel):
 
         self.target_template(layout, con)
 
+        layout.prop(con, "fix_target_shear")
+        layout.prop(con, "invert")
         layout.prop(con, "mix_mode", text="Mix")
 
         self.space_template(layout, con)
