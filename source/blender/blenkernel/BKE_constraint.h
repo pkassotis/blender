@@ -214,6 +214,8 @@ void BKE_constraint_mat_convertspace(struct Object *ob,
                                      short to,
                                      const bool keep_scale);
 
+int BKE_constraint_targets_get(struct bConstraint *con, struct ListBase *list);
+void BKE_constraint_targets_flush(struct bConstraint *con, struct ListBase *list, bool no_copy);
 void BKE_constraint_target_matrix_get(struct Depsgraph *depsgraph,
                                       struct Scene *scene,
                                       struct bConstraint *con,
@@ -227,7 +229,7 @@ void BKE_constraint_targets_for_solving_get(struct Depsgraph *depsgraph,
                                             struct bConstraintOb *ob,
                                             struct ListBase *targets,
                                             float ctime);
-void BKE_constraint_custom_object_space_get(float r_mat[4][4], struct bConstraint *con);
+void BKE_constraint_custom_object_space_init(struct bConstraintOb *cob, struct bConstraint *con);
 void BKE_constraints_solve(struct Depsgraph *depsgraph,
                            struct ListBase *conlist,
                            struct bConstraintOb *cob,

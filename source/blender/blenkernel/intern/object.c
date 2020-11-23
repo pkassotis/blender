@@ -2274,22 +2274,17 @@ static void copy_object_pose(Object *obn, const Object *ob, const int flag)
      *     BKE_library_remap stuff, but...
      *     the flush_constraint_targets callback am not sure about, so will delay that for now. */
     LISTBASE_FOREACH (bConstraint *, con, &chan->constraints) {
-      const bConstraintTypeInfo *cti = BKE_constraint_typeinfo_get(con);
       ListBase targets = {NULL, NULL};
       bConstraintTarget *ct;
 
-      if (cti && cti->get_constraint_targets) {
-        cti->get_constraint_targets(con, &targets);
-
+      if (BKE_constraint_targets_get(con, &targets)) {
         for (ct = targets.first; ct; ct = ct->next) {
           if (ct->tar == ob) {
             ct->tar = obn;
           }
         }
 
-        if (cti->flush_constraint_targets) {
-          cti->flush_constraint_targets(con, &targets, 0);
-        }
+        BKE_constraint_targets_flush(con, &targets, 0);
       }
     }
   }
@@ -5380,12 +5375,10 @@ bool BKE_object_modifier_update_subframe(Depsgraph *depsgraph,
 
     /* also update constraint targets */
     for (con = ob->constraints.first; con; con = con->next) {
-      const bConstraintTypeInfo *cti = BKE_constraint_typeinfo_get(con);
       ListBase targets = {NULL, NULL};
 
-      if (cti && cti->get_constraint_targets) {
+      if (BKE_constraint_targets_get(con, &targets)) {
         bConstraintTarget *ct;
-        cti->get_constraint_targets(con, &targets);
         for (ct = targets.first; ct; ct = ct->next) {
           if (ct->tar) {
             BKE_object_modifier_update_subframe(
@@ -5393,9 +5386,7 @@ bool BKE_object_modifier_update_subframe(Depsgraph *depsgraph,
           }
         }
         /* free temp targets */
-        if (cti->flush_constraint_targets) {
-          cti->flush_constraint_targets(con, &targets, 0);
-        }
+        BKE_constraint_targets_flush(con, &targets, 0);
       }
     }
   }
