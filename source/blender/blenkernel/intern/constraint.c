@@ -299,7 +299,7 @@ void BKE_constraint_mat_convertspace(Object *ob,
           mul_m4_m4m4(mat, imat, mat);
 
           /* Use pose-space as stepping stone for other spaces. */
-          if (ELEM(to, CONSTRAINT_SPACE_LOCAL, CONSTRAINT_SPACE_PARLOCAL)) {
+          if (to != CONSTRAINT_SPACE_POSE) {
             /* Call self with slightly different values. */
             BKE_constraint_mat_convertspace(
                 ob, pchan, cob, mat, CONSTRAINT_SPACE_POSE, to, keep_scale);
@@ -310,9 +310,22 @@ void BKE_constraint_mat_convertspace(Object *ob,
       case CONSTRAINT_SPACE_POSE: /* ---------- FROM POSESPACE ---------- */
       {
         /* pose to local */
-        if (to == CONSTRAINT_SPACE_LOCAL) {
+        if (ELEM(to, CONSTRAINT_SPACE_LOCAL, CONSTRAINT_SPACE_OWNLOCAL)) {
           if (pchan->bone) {
             BKE_armature_mat_pose_to_bone(pchan, mat, mat);
+
+            if (to == CONSTRAINT_SPACE_OWNLOCAL) {
+              copy_m4_m4(diff_mat, pchan->bone->arm_mat);
+
+              if (cob && cob->pchan && cob->pchan->bone) {
+                invert_m4_m4(imat, cob->pchan->bone->arm_mat);
+                mul_m4_m4m4(diff_mat, imat, diff_mat);
+              }
+
+              zero_v3(diff_mat[3]);
+              invert_m4_m4(imat, diff_mat);
+              mul_m4_series(mat, diff_mat, mat, imat);
+            }
           }
         }
         /* pose to local with parent */
@@ -335,15 +348,28 @@ void BKE_constraint_mat_convertspace(Object *ob,
         break;
       }
       case CONSTRAINT_SPACE_LOCAL: /* ------------ FROM LOCALSPACE --------- */
-      {
+      case CONSTRAINT_SPACE_OWNLOCAL: {
         /* local to pose - do inverse procedure that was done for pose to local */
         if (pchan->bone) {
+          if (from == CONSTRAINT_SPACE_OWNLOCAL) {
+            copy_m4_m4(diff_mat, pchan->bone->arm_mat);
+
+            if (cob && cob->pchan && cob->pchan->bone) {
+              invert_m4_m4(imat, cob->pchan->bone->arm_mat);
+              mul_m4_m4m4(diff_mat, imat, diff_mat);
+            }
+
+            zero_v3(diff_mat[3]);
+            invert_m4_m4(imat, diff_mat);
+            mul_m4_series(mat, imat, mat, diff_mat);
+          }
+
           /* we need the posespace_matrix = local_matrix + (parent_posespace_matrix + restpos) */
           BKE_armature_mat_bone_to_pose(pchan, mat, mat);
         }
 
         /* use pose-space as stepping stone for other spaces */
-        if (ELEM(to, CONSTRAINT_SPACE_WORLD, CONSTRAINT_SPACE_PARLOCAL, CONSTRAINT_SPACE_CUSTOM)) {
+        if (to != CONSTRAINT_SPACE_POSE) {
           /* call self with slightly different values */
           BKE_constraint_mat_convertspace(
               ob, pchan, cob, mat, CONSTRAINT_SPACE_POSE, to, keep_scale);
@@ -358,7 +384,7 @@ void BKE_constraint_mat_convertspace(Object *ob,
         }
 
         /* use pose-space as stepping stone for other spaces */
-        if (ELEM(to, CONSTRAINT_SPACE_WORLD, CONSTRAINT_SPACE_LOCAL, CONSTRAINT_SPACE_CUSTOM)) {
+        if (to != CONSTRAINT_SPACE_POSE) {
           /* call self with slightly different values */
           BKE_constraint_mat_convertspace(
               ob, pchan, cob, mat, CONSTRAINT_SPACE_POSE, to, keep_scale);
