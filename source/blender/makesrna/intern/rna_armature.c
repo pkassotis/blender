@@ -720,7 +720,7 @@ void rna_def_bone_curved_common(StructRNA *srna, bool is_posebone, bool is_editb
     prop = RNA_def_property(srna, "use_endroll_as_inroll", PROP_BOOLEAN, PROP_NONE);
     RNA_def_property_ui_text(
         prop, "Inherit End Roll", "Add Roll Out of the Start Handle bone to the Roll In value");
-    RNA_def_property_boolean_sdna(prop, NULL, "flag", BONE_ADD_PARENT_END_ROLL);
+    RNA_def_property_boolean_sdna(prop, NULL, "bbone_flag", BBONE_ADD_PARENT_END_ROLL);
     RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
     RNA_def_property_update(prop, 0, "rna_Armature_dependency_update");
   }
@@ -769,6 +769,26 @@ void rna_def_bone_curved_common(StructRNA *srna, bool is_posebone, bool is_editb
   RNA_def_property_ui_text(prop, "Ease Out", "Length of second Bezier Handle (for B-Bones only)");
   RNA_DEF_CURVEBONE_UPDATE(prop, is_posebone, is_editbone);
 
+  if (is_posebone == false) {
+    prop = RNA_def_property(srna, "use_scale_easing", PROP_BOOLEAN, PROP_NONE);
+    RNA_def_property_ui_text(
+        prop,
+        "Scale Easing",
+        "Multiply the final easing values by the Scale In/Out Length factors");
+    RNA_def_property_boolean_sdna(prop, NULL, "bbone_flag", BBONE_SCALE_EASING);
+    RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+    RNA_def_property_update(prop, 0, "rna_Armature_dependency_update");
+
+    prop = RNA_def_property(srna, "use_unscaled_segments", PROP_BOOLEAN, PROP_NONE);
+    RNA_def_property_ui_text(prop,
+                             "Unscaled Segments (Legacy)",
+                             "Do not apply scaling necessary to fit segments to the curve length "
+                             "without gaps or overlap for compatibility with old files");
+    RNA_def_property_boolean_negative_sdna(prop, NULL, "bbone_flag", BBONE_SCALE_SEGMENTS);
+    RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+    RNA_def_property_update(prop, 0, "rna_Armature_dependency_update");
+  }
+
   /* Scale In/Out */
   prop = RNA_def_property(srna, "bbone_scaleinx", PROP_FLOAT, PROP_NONE);
   RNA_def_property_float_sdna(prop, NULL, "scale_in_x");
@@ -792,6 +812,18 @@ void rna_def_bone_curved_common(StructRNA *srna, bool is_posebone, bool is_editb
                            "adjusts thickness (for tapering effects)");
   RNA_DEF_CURVEBONE_UPDATE(prop, is_posebone, is_editbone);
 
+  prop = RNA_def_property(srna, "bbone_scalein_len", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "scale_in_len");
+  RNA_def_property_flag(prop, PROP_PROPORTIONAL);
+  RNA_def_property_range(prop, 0.0001f, FLT_MAX);
+  RNA_def_property_ui_range(prop, 0.0f, FLT_MAX, 1, 3);
+  RNA_def_property_float_default(prop, 1.0f);
+  RNA_def_property_ui_text(prop,
+                           "Scale In Length",
+                           "Lengthwise-axis scale factor for start of the B-Bone, "
+                           "creates uneven segment length");
+  RNA_DEF_CURVEBONE_UPDATE(prop, is_posebone, is_editbone);
+
   prop = RNA_def_property(srna, "bbone_scaleoutx", PROP_FLOAT, PROP_NONE);
   RNA_def_property_float_sdna(prop, NULL, "scale_out_x");
   RNA_def_property_flag(prop, PROP_PROPORTIONAL);
@@ -812,6 +844,18 @@ void rna_def_bone_curved_common(StructRNA *srna, bool is_posebone, bool is_editb
                            "Scale Out Y",
                            "Y-axis scale factor for end of the B-Bone, "
                            "adjusts thickness (for tapering effects)");
+  RNA_DEF_CURVEBONE_UPDATE(prop, is_posebone, is_editbone);
+
+  prop = RNA_def_property(srna, "bbone_scaleout_len", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "scale_out_len");
+  RNA_def_property_flag(prop, PROP_PROPORTIONAL);
+  RNA_def_property_range(prop, 0.0001f, FLT_MAX);
+  RNA_def_property_ui_range(prop, 0.0f, FLT_MAX, 1, 3);
+  RNA_def_property_float_default(prop, 1.0f);
+  RNA_def_property_ui_text(prop,
+                           "Scale Out Length",
+                           "Lengthwise-axis scale factor for the end of the B-Bone, "
+                           "creates uneven segment length");
   RNA_DEF_CURVEBONE_UPDATE(prop, is_posebone, is_editbone);
 
 #  undef RNA_DEF_CURVEBONE_UPDATE
@@ -1079,6 +1123,17 @@ static void rna_def_bone_common(StructRNA *srna, int editbone)
       prop, "B-Bone Start Handle Type", "Selects how the start handle of the B-Bone is computed");
   RNA_def_property_update(prop, 0, "rna_Armature_dependency_update");
 
+  prop = RNA_def_property(srna, "bbone_handle_scale_start", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_ui_text(
+      prop,
+      "Start Handle Scale",
+      "Multiply B-Bone scale channels by the local scale values of the handle. "
+      "This is done after the Scale Easing option and isn't affected by it");
+  RNA_def_property_boolean_sdna(prop, NULL, "bbone_prev_flag", BBONE_HANDLE_SCALE_X);
+  RNA_def_property_array(prop, 4);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_update(prop, 0, "rna_Armature_dependency_update");
+
   prop = RNA_def_property(srna, "bbone_custom_handle_start", PROP_POINTER, PROP_NONE);
   RNA_def_property_pointer_sdna(prop, NULL, "bbone_prev");
   RNA_def_property_struct_type(prop, editbone ? "EditBone" : "Bone");
@@ -1101,6 +1156,17 @@ static void rna_def_bone_common(StructRNA *srna, int editbone)
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_ui_text(
       prop, "B-Bone End Handle Type", "Selects how the end handle of the B-Bone is computed");
+  RNA_def_property_update(prop, 0, "rna_Armature_dependency_update");
+
+  prop = RNA_def_property(srna, "bbone_handle_scale_end", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_ui_text(
+      prop,
+      "End Handle Scale",
+      "Multiply B-Bone scale channels by the local scale values of the handle. "
+      "This is done after the Scale Easing option and isn't affected by it");
+  RNA_def_property_boolean_sdna(prop, NULL, "bbone_next_flag", BBONE_HANDLE_SCALE_X);
+  RNA_def_property_array(prop, 4);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_update(prop, 0, "rna_Armature_dependency_update");
 
   prop = RNA_def_property(srna, "bbone_custom_handle_end", PROP_POINTER, PROP_NONE);

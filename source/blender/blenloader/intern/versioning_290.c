@@ -27,6 +27,7 @@
 #include "BLI_utildefines.h"
 
 #include "DNA_anim_types.h"
+#include "DNA_armature_types.h"
 #include "DNA_brush_types.h"
 #include "DNA_cachefile_types.h"
 #include "DNA_collection_types.h"
@@ -695,6 +696,19 @@ static void do_versions_291_fcurve_handles_limit(FCurve *fcu)
     madd_v2_v2v2fl(bezt->vec[2], v1, delta1, -factor); /* vec[2] = v1 - factor * delta1 */
     /* Next keyframe's left handle: */
     madd_v2_v2v2fl(nextbezt->vec[0], v4, delta2, -factor); /* vec[0] = v4 - factor * delta2 */
+  }
+}
+
+static void do_version_bones_bbone_len_scale(ListBase *lb)
+{
+  LISTBASE_FOREACH (Bone *, bone, lb) {
+    if (bone->flag & BONE_ADD_PARENT_END_ROLL) {
+      bone->bbone_flag |= BBONE_ADD_PARENT_END_ROLL;
+    }
+
+    bone->scale_in_len = bone->scale_out_len = 1.0f;
+
+    do_version_bones_bbone_len_scale(&bone->childbase);
   }
 }
 
@@ -1504,6 +1518,21 @@ void blo_do_versions_290(FileData *fd, Library *UNUSED(lib), Main *bmain)
           NodeSetAlpha *storage = MEM_callocN(sizeof(NodeSetAlpha), "NodeSetAlpha");
           storage->mode = CMP_NODE_SETALPHA_MODE_REPLACE_ALPHA;
           node->storage = storage;
+        }
+      }
+    }
+
+    if (!DNA_struct_elem_find(fd->filesdna, "bPoseChannel", "float", "scale_out_len")) {
+      /* Update armature data and pose channels. */
+      LISTBASE_FOREACH (bArmature *, arm, &bmain->armatures) {
+        do_version_bones_bbone_len_scale(&arm->bonebase);
+      }
+
+      LISTBASE_FOREACH (Object *, ob, &bmain->objects) {
+        if (ob->pose) {
+          LISTBASE_FOREACH (bPoseChannel *, pchan, &ob->pose->chanbase) {
+            pchan->scale_in_len = pchan->scale_out_len = 1.0f;
+          }
         }
       }
     }

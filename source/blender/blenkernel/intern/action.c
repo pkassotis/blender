@@ -648,8 +648,8 @@ bPoseChannel *BKE_pose_channel_verify(bPose *pose, const char *name)
   unit_axis_angle(chan->rotAxis, &chan->rotAngle);
   chan->size[0] = chan->size[1] = chan->size[2] = 1.0f;
 
-  chan->scale_in_x = chan->scale_in_y = 1.0f;
-  chan->scale_out_x = chan->scale_out_y = 1.0f;
+  chan->scale_in_x = chan->scale_in_y = chan->scale_in_len = 1.0f;
+  chan->scale_out_x = chan->scale_out_y = chan->scale_out_len = 1.0f;
 
   chan->limitmin[0] = chan->limitmin[1] = chan->limitmin[2] = -M_PI;
   chan->limitmax[0] = chan->limitmax[1] = chan->limitmax[2] = M_PI;
@@ -1662,8 +1662,8 @@ void BKE_pose_rest(bPose *pose, bool selected_bones_only)
     pchan->curve_in_x = pchan->curve_in_y = 0.0f;
     pchan->curve_out_x = pchan->curve_out_y = 0.0f;
     pchan->ease1 = pchan->ease2 = 0.0f;
-    pchan->scale_in_x = pchan->scale_in_y = 1.0f;
-    pchan->scale_out_x = pchan->scale_out_y = 1.0f;
+    pchan->scale_in_x = pchan->scale_in_y = pchan->scale_in_len = 1.0f;
+    pchan->scale_out_x = pchan->scale_out_y = pchan->scale_in_len = 1.0f;
 
     pchan->flag &= ~(POSE_LOC | POSE_ROT | POSE_SIZE | POSE_BBONE_SHAPE);
   }
@@ -1693,8 +1693,10 @@ void BKE_pose_copy_pchan_result(bPoseChannel *pchanto, const bPoseChannel *pchan
   pchanto->ease2 = pchanfrom->ease2;
   pchanto->scale_in_x = pchanfrom->scale_in_x;
   pchanto->scale_in_y = pchanfrom->scale_in_y;
+  pchanto->scale_in_len = pchanfrom->scale_in_len;
   pchanto->scale_out_x = pchanfrom->scale_out_x;
   pchanto->scale_out_y = pchanfrom->scale_out_y;
+  pchanto->scale_out_len = pchanfrom->scale_out_len;
 
   pchanto->rotmode = pchanfrom->rotmode;
   pchanto->flag = pchanfrom->flag;

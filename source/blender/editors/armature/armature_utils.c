@@ -417,6 +417,7 @@ void ED_armature_ebone_transform_mirror_update(bArmature *arm, EditBone *ebo, bo
         eboflip->curve_out_y = ebo->curve_out_y;
         eboflip->scale_out_x = ebo->scale_out_x;
         eboflip->scale_out_y = ebo->scale_out_y;
+        eboflip->scale_out_len = ebo->scale_out_len;
         eboflip->ease2 = ebo->ease2;
         eboflip->roll2 = -ebo->roll2;
 
@@ -441,6 +442,7 @@ void ED_armature_ebone_transform_mirror_update(bArmature *arm, EditBone *ebo, bo
         eboflip->curve_in_y = ebo->curve_in_y;
         eboflip->scale_in_x = ebo->scale_in_x;
         eboflip->scale_in_y = ebo->scale_in_y;
+        eboflip->scale_in_len = ebo->scale_in_len;
         eboflip->ease1 = ebo->ease1;
         eboflip->roll1 = -ebo->roll1;
 
@@ -549,11 +551,17 @@ static EditBone *make_boneList_recursive(ListBase *edbo,
     eBone->ease2 = curBone->ease2;
     eBone->scale_in_x = curBone->scale_in_x;
     eBone->scale_in_y = curBone->scale_in_y;
+    eBone->scale_in_len = curBone->scale_in_len;
     eBone->scale_out_x = curBone->scale_out_x;
     eBone->scale_out_y = curBone->scale_out_y;
+    eBone->scale_out_len = curBone->scale_out_len;
 
     eBone->bbone_prev_type = curBone->bbone_prev_type;
     eBone->bbone_next_type = curBone->bbone_next_type;
+
+    eBone->bbone_flag = curBone->bbone_flag;
+    eBone->bbone_prev_flag = curBone->bbone_prev_flag;
+    eBone->bbone_next_flag = curBone->bbone_next_flag;
 
     if (curBone->prop) {
       eBone->prop = IDP_CopyProperty(curBone->prop);
@@ -764,11 +772,17 @@ void ED_armature_from_edit(Main *bmain, bArmature *arm)
     newBone->ease2 = eBone->ease2;
     newBone->scale_in_x = eBone->scale_in_x;
     newBone->scale_in_y = eBone->scale_in_y;
+    newBone->scale_in_len = eBone->scale_in_len;
     newBone->scale_out_x = eBone->scale_out_x;
     newBone->scale_out_y = eBone->scale_out_y;
+    newBone->scale_out_len = eBone->scale_out_len;
 
     newBone->bbone_prev_type = eBone->bbone_prev_type;
     newBone->bbone_next_type = eBone->bbone_next_type;
+
+    newBone->bbone_flag = eBone->bbone_flag;
+    newBone->bbone_prev_flag = eBone->bbone_prev_flag;
+    newBone->bbone_next_flag = eBone->bbone_next_flag;
 
     if (eBone->prop) {
       newBone->prop = IDP_CopyProperty(eBone->prop);

@@ -81,8 +81,8 @@ typedef struct EditBone {
   float curve_in_x, curve_in_y;
   float curve_out_x, curve_out_y;
   float ease1, ease2;
-  float scale_in_x, scale_in_y;
-  float scale_out_x, scale_out_y;
+  float scale_in_x, scale_in_y, scale_in_len;
+  float scale_out_x, scale_out_y, scale_out_len;
 
   /** for envelope scaling */
   float oldlength;
@@ -90,6 +90,10 @@ typedef struct EditBone {
   /** Type of next/prev bone handles */
   char bbone_prev_type;
   char bbone_next_type;
+  /** B-Bone flags. */
+  int bbone_flag;
+  short bbone_prev_flag;
+  short bbone_next_flag;
   /** Next/prev bones to use as handle references when calculating bbones (optional) */
   struct EditBone *bbone_prev;
   struct EditBone *bbone_next;
@@ -281,7 +285,7 @@ typedef struct BBoneSplineParameters {
   float length;
 
   /* Non-uniform scale correction. */
-  bool do_scale;
+  bool do_scale, do_scale_segments;
   float scale[3];
 
   /* Handle control bone data. */
@@ -294,7 +298,7 @@ typedef struct BBoneSplineParameters {
   /* Control values. */
   float ease1, ease2;
   float roll1, roll2;
-  float scale_in_x, scale_in_y, scale_out_x, scale_out_y;
+  float scale_in_x, scale_in_y, scale_in_len, scale_out_x, scale_out_y, scale_out_len;
   float curve_in_x, curve_in_y, curve_out_x, curve_out_y;
 } BBoneSplineParameters;
 
