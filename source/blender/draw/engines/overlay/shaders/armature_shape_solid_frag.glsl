@@ -1,6 +1,4 @@
 
-uniform float alpha = 0.6;
-
 in vec4 finalColor;
 flat in int inverted;
 
@@ -15,6 +13,6 @@ void main()
   if ((inverted == 1) == gl_FrontFacing) {
     discard;
   }
-  fragColor = vec4(finalColor.rgb, alpha);
+  fragColor = vec4(finalColor.rgb, wire_alpha(gl_FragCoord.z));
   lineOutput = vec4(0.0);
 }

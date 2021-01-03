@@ -9,5 +9,5 @@ layout(location = 1) out vec4 lineOutput;
 void main()
 {
   lineOutput = pack_line_data(gl_FragCoord.xy, edgeStart, edgePos);
-  fragColor = finalColor;
+  fragColor = vec4(finalColor.rgb, wire_alpha(gl_FragCoord.z));
 }

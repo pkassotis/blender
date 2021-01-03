@@ -6473,17 +6473,18 @@ class VIEW3D_PT_overlay_sculpt(Panel):
         row.prop(overlay, "sculpt_mode_face_sets_opacity", text="Face Sets")
 
 
-class VIEW3D_PT_overlay_pose(Panel):
+class VIEW3D_PT_overlay_bones(Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'HEADER'
     bl_parent_id = 'VIEW3D_PT_overlay'
-    bl_label = "Pose Mode"
+    bl_label = "Bones"
 
     @classmethod
     def poll(cls, context):
         mode = context.mode
         return (
             (mode == 'POSE') or
+            (mode == 'EDIT_ARMATURE') or
             (mode == 'PAINT_WEIGHT' and context.pose_object)
         )
 
@@ -6503,9 +6504,13 @@ class VIEW3D_PT_overlay_pose(Panel):
             sub = row.row()
             sub.active = display_all and overlay.show_xray_bone
             sub.prop(overlay, "xray_alpha_bone", text="Fade Geometry")
-        else:
+        elif mode == 'PAINT_WEIGHT':
             row = col.row()
             row.prop(overlay, "show_xray_bone")
+
+        row = col.row()
+        row.prop(overlay, "bone_wire_alpha")
+        row.prop(overlay, "bone_wire_fade")
 
 
 class VIEW3D_PT_overlay_texture_paint(Panel):
@@ -7675,7 +7680,7 @@ classes = (
     VIEW3D_PT_overlay_texture_paint,
     VIEW3D_PT_overlay_vertex_paint,
     VIEW3D_PT_overlay_weight_paint,
-    VIEW3D_PT_overlay_pose,
+    VIEW3D_PT_overlay_bones,
     VIEW3D_PT_overlay_sculpt,
     VIEW3D_PT_snapping,
     VIEW3D_PT_proportional_edit,

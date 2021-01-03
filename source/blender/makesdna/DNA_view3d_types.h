@@ -222,6 +222,7 @@ typedef struct View3DOverlay {
 
   /** Armature edit/pose mode settings. */
   float xray_alpha_bone;
+  float bone_wire_alpha, bone_wire_fade;
 
   /** Darken Inactive. */
   float fade_alpha;
