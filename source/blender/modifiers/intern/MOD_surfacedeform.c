@@ -115,6 +115,7 @@ typedef struct SDefBindPoly {
   float weight_dist;
   float weight;
   float scales[2];
+  float scale_mid;
   /** Center of `coords` */
   float centroid[3];
   /** Center of `coords_v2` */
@@ -460,9 +461,13 @@ static void freeBindData(SDefBindWeightData *const bwdata)
   MEM_freeN(bwdata);
 }
 
-BLI_INLINE float computeAngularWeight(const float point_angle)
+BLI_INLINE float computeAngularWeight(const float point_angle, const float edgemid_angle)
 {
-  return sinf(point_angle * M_PI_2);
+  if (edgemid_angle <= FLT_EPSILON) {
+    return point_angle > 0 ? 1 : 0;
+  }
+
+  return sinf(min_ff(point_angle / edgemid_angle, 1) * M_PI_2);
 }
 
 BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData *const data,
@@ -603,33 +608,40 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData *const data,
 
         avg_point_dist += bpoly->weight_dist;
 
-        /* Compute centroid to mid-edge vectors */
-        mid_v2_v2v2(bpoly->cent_edgemid_vecs_v2[0],
-                    bpoly->coords_v2[bpoly->edge_vert_inds[0]],
-                    bpoly->coords_v2[bpoly->corner_ind]);
+        /* Common vertex coordinates. */
+        const float *const vert0_v2 = bpoly->coords_v2[bpoly->edge_vert_inds[0]];
+        const float *const vert1_v2 = bpoly->coords_v2[bpoly->edge_vert_inds[1]];
+        const float *const corner_v2 = bpoly->coords_v2[bpoly->corner_ind];
 
-        mid_v2_v2v2(bpoly->cent_edgemid_vecs_v2[1],
-                    bpoly->coords_v2[bpoly->edge_vert_inds[1]],
-                    bpoly->coords_v2[bpoly->corner_ind]);
+        /* Compute centroid to mid-edge vectors */
+        mid_v2_v2v2(bpoly->cent_edgemid_vecs_v2[0], vert0_v2, corner_v2);
+        mid_v2_v2v2(bpoly->cent_edgemid_vecs_v2[1], vert1_v2, corner_v2);
 
         sub_v2_v2(bpoly->cent_edgemid_vecs_v2[0], bpoly->centroid_v2);
         sub_v2_v2(bpoly->cent_edgemid_vecs_v2[1], bpoly->centroid_v2);
 
-        /* Compute poly scales with respect to mid-edges, and normalize the vectors */
-        bpoly->scales[0] = normalize_v2(bpoly->cent_edgemid_vecs_v2[0]);
-        bpoly->scales[1] = normalize_v2(bpoly->cent_edgemid_vecs_v2[1]);
+        normalize_v2(bpoly->cent_edgemid_vecs_v2[0]);
+        normalize_v2(bpoly->cent_edgemid_vecs_v2[1]);
 
-        /* Compute the required polygon angles */
+        /* Compute poly scales with respect to the two edges. */
+        bpoly->scales[0] = dist_to_line_v2(bpoly->centroid_v2, vert0_v2, corner_v2);
+        bpoly->scales[1] = dist_to_line_v2(bpoly->centroid_v2, vert1_v2, corner_v2);
+
+        /* Compute the angle between the edge mid vectors. */
         bpoly->edgemid_angle = angle_normalized_v2v2(bpoly->cent_edgemid_vecs_v2[0],
                                                      bpoly->cent_edgemid_vecs_v2[1]);
 
-        sub_v2_v2v2(tmp_vec_v2, bpoly->coords_v2[bpoly->corner_ind], bpoly->centroid_v2);
+        /* Compute the angles between the corner and the edge mid vectors. */
+        float corner_angles[2];
+
+        sub_v2_v2v2(tmp_vec_v2, corner_v2, bpoly->centroid_v2);
         normalize_v2(tmp_vec_v2);
 
-        bpoly->corner_edgemid_angles[0] = angle_normalized_v2v2(tmp_vec_v2,
-                                                                bpoly->cent_edgemid_vecs_v2[0]);
-        bpoly->corner_edgemid_angles[1] = angle_normalized_v2v2(tmp_vec_v2,
-                                                                bpoly->cent_edgemid_vecs_v2[1]);
+        corner_angles[0] = angle_signed_v2v2(tmp_vec_v2, bpoly->cent_edgemid_vecs_v2[0]);
+        corner_angles[1] = angle_signed_v2v2(tmp_vec_v2, bpoly->cent_edgemid_vecs_v2[1]);
+
+        bpoly->corner_edgemid_angles[0] = fabsf(corner_angles[0]);
+        bpoly->corner_edgemid_angles[1] = fabsf(corner_angles[1]);
 
         /* Check for infinite weights, and compute angular data otherwise. */
         if (bpoly->weight_dist < FLT_EPSILON) {
@@ -640,15 +652,46 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData *const data,
           inf_weight_flags |= MOD_SDEF_INFINITE_WEIGHT_DIST_PROJ;
         }
         else {
-          float cent_point_vec[2];
+          /* Compute angles between the point and the edge mid vectors.  */
+          float cent_point_vec[2], point_angles[2];
 
           sub_v2_v2v2(cent_point_vec, bpoly->point_v2, bpoly->centroid_v2);
           normalize_v2(cent_point_vec);
 
-          bpoly->point_edgemid_angles[0] = angle_normalized_v2v2(cent_point_vec,
-                                                                 bpoly->cent_edgemid_vecs_v2[0]);
-          bpoly->point_edgemid_angles[1] = angle_normalized_v2v2(cent_point_vec,
-                                                                 bpoly->cent_edgemid_vecs_v2[1]);
+          point_angles[0] = angle_signed_v2v2(cent_point_vec, bpoly->cent_edgemid_vecs_v2[0]) *
+                            signf(corner_angles[0]);
+          point_angles[1] = angle_signed_v2v2(cent_point_vec, bpoly->cent_edgemid_vecs_v2[1]) *
+                            signf(corner_angles[1]);
+
+          if (point_angles[0] < 0 && point_angles[1] < 0) {
+            /* If the point is outside the corner formed by the edge mid vectors,
+             * choose to clamp the closest side and flip the other. */
+            if (point_angles[0] < point_angles[1]) {
+              point_angles[0] = bpoly->edgemid_angle - point_angles[1];
+            }
+            else {
+              point_angles[1] = bpoly->edgemid_angle - point_angles[0];
+            }
+          }
+
+          bpoly->point_edgemid_angles[0] = max_ff(0, point_angles[0]);
+          bpoly->point_edgemid_angles[1] = max_ff(0, point_angles[1]);
+
+          /* Compute the distance scale for the corner. The base value is the orthogonal
+           * distance from the corner to the chord, scaled by sqrt(2) to preserve the old
+           * values in case of a square grid. This doesn't use the centroid because the
+           * LOOPTRI method only uses these three vertices. */
+          bpoly->scale_mid = area_tri_v2(vert0_v2, corner_v2, vert1_v2) /
+                             len_v2v2(vert0_v2, vert1_v2) * sqrtf(2);
+
+          if (bpoly->inside) {
+            /* When inside, interpolate to centroid-based scale close to the center. */
+            float min_dist = min_ff(bpoly->scales[0], bpoly->scales[1]);
+
+            bpoly->scale_mid = interpf(bpoly->scale_mid,
+                                       (bpoly->scales[0] + bpoly->scales[1]) / 2,
+                                       min_ff(bpoly->weight_dist_proj / min_dist, 1));
+          }
         }
       }
     }
@@ -688,12 +731,15 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData *const data,
 
       /* Compute angular weight component */
       if (epolys->num == 1) {
-        ang_weights[0] = computeAngularWeight(bpolys[0]->point_edgemid_angles[edge_on_poly[0]]);
+        ang_weights[0] = computeAngularWeight(bpolys[0]->point_edgemid_angles[edge_on_poly[0]],
+                                              bpolys[0]->edgemid_angle);
         bpolys[0]->weight_angular *= ang_weights[0] * ang_weights[0];
       }
       else if (epolys->num == 2) {
-        ang_weights[0] = computeAngularWeight(bpolys[0]->point_edgemid_angles[edge_on_poly[0]]);
-        ang_weights[1] = computeAngularWeight(bpolys[1]->point_edgemid_angles[edge_on_poly[1]]);
+        ang_weights[0] = computeAngularWeight(bpolys[0]->point_edgemid_angles[edge_on_poly[0]],
+                                              bpolys[0]->edgemid_angle);
+        ang_weights[1] = computeAngularWeight(bpolys[1]->point_edgemid_angles[edge_on_poly[1]],
+                                              bpolys[1]->edgemid_angle);
 
         bpolys[0]->weight_angular *= ang_weights[0] * ang_weights[1];
         bpolys[1]->weight_angular *= ang_weights[0] * ang_weights[1];
@@ -731,6 +777,8 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData *const data,
         bpoly->dominant_angle_weight = corner_angle_weights[1];
       }
 
+      BLI_assert(bpoly->dominant_angle_weight >= 0 && bpoly->dominant_angle_weight <= 1);
+
       bpoly->dominant_angle_weight = sinf(bpoly->dominant_angle_weight * M_PI_2);
 
       /* Compute quadratic angular scale interpolation weight */
@@ -750,8 +798,13 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData *const data,
 
       /* Compute interpolated scale (no longer need the individual scales,
        * so simply storing the result over the scale in index zero) */
-      bpoly->scales[0] = bpoly->scales[bpoly->dominant_edge] * (1.0f - scale_weight) +
-                         bpoly->scales[!bpoly->dominant_edge] * scale_weight;
+      bpoly->scales[0] = interpf(bpoly->scale_mid,
+                                 interpf(bpoly->scales[!bpoly->dominant_edge],
+                                         bpoly->scales[bpoly->dominant_edge],
+                                         scale_weight),
+                                 bpoly->dominant_angle_weight);
+
+      CLAMP_MIN(bpoly->scales[0], FLT_EPSILON);
 
       /* Scale the point distance weights, and introduce falloff */
       bpoly->weight_dist_proj /= bpoly->scales[0];
